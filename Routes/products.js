@@ -1,19 +1,15 @@
 const express = require('express');
+const Product = require('../dao/models/product');
 const router = express.Router();
 
-const productsData = [
-    { id: 1, title: 'Camisa', price: 99.90 },
-];
-
 module.exports = (io) => {
-    router.get('/', (req, res) => {
-        res.json(productsData);
+    router.get('/', async (req, res) => {
+        const products = await Product.find();
+        res.json(products);
     });
 
-    router.get('/:pid', (req, res) => {
-        const productId = parseInt(req.params.pid);
-        const product = productsData.find(p => p.id === productId);
-
+    router.get('/:pid', async (req, res) => {
+        const product = await Product.findById(req.params.pid);
         if (!product) {
             res.status(404).json({ error: 'Produto não encontrado' });
         } else {
@@ -21,46 +17,30 @@ module.exports = (io) => {
         }
     });
 
-    router.post('/', (req, res) => {
+    router.post('/', async (req, res) => {
         const { title, price } = req.body;
-
-        const newProduct = {
-            id: productsData.length + 1,
-            title,
-            price,
-        };
-
-        productsData.push(newProduct);
-        io.emit('updateProducts', productsData); 
-
+        const newProduct = new Product({ title, price });
+        await newProduct.save();
+        io.emit('updateProducts', await Product.find());
         res.status(201).json(newProduct);
     });
 
-    router.put('/:pid', (req, res) => {
-        const productId = parseInt(req.params.pid);
-        const updatedProduct = req.body;
-
-        const index = productsData.findIndex(p => p.id === productId);
-
-        if (index === -1) {
+    router.put('/:pid', async (req, res) => {
+        const updatedProduct = await Product.findByIdAndUpdate(req.params.pid, req.body, { new: true });
+        if (!updatedProduct) {
             res.status(404).json({ error: 'Produto não encontrado' });
         } else {
-            productsData[index] = { ...productsData[index], ...updatedProduct };
-            io.emit('updateProducts', productsData); 
-            res.json(productsData[index]);
+            io.emit('updateProducts', await Product.find());
+            res.json(updatedProduct);
         }
     });
 
-    router.delete('/:pid', (req, res) => {
-        const productId = parseInt(req.params.pid);
-
-        const index = productsData.findIndex(p => p.id === productId);
-
-        if (index === -1) {
+    router.delete('/:pid', async (req, res) => {
+        const deletedProduct = await Product.findByIdAndDelete(req.params.pid);
+        if (!deletedProduct) {
             res.status(404).json({ error: 'Produto não encontrado' });
         } else {
-            productsData.splice(index, 1);
-            io.emit('updateProducts', productsData); 
+            io.emit('updateProducts', await Product.find());
             res.status(204).end();
         }
     });

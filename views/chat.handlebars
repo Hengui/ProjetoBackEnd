@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        socket.on('newMessage', (message) => {
+            const messageList = document.getElementById('messageList');
+            const li = document.createElement('li');
+            li.textContent = `${message.user}: ${message.message}`;
+            messageList.appendChild(li);
+        });
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const user = document.getElementById('user').value;
+            const message = document.getElementById('message').value;
+            socket.emit('sendMessage', { user, message });
+        }
+    </script>
+</head>
+<body>
+    <h1>Chat</h1>
+    <ul id="messageList"></ul>
+
+    <form onsubmit="sendMessage(event)">
+        <input type="text" id="user" placeholder="Seu email" required>
+        <input type="text" id="message" placeholder="Mensagem" required>
+        <button type="submit">Enviar</button>
+    </form>
+</body>
+</html>
