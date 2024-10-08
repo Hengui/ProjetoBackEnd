@@ -4,44 +4,31 @@ const router = express.Router();
 
 module.exports = (io) => {
     router.get('/', async (req, res) => {
-        const products = await Product.find();
-        res.json(products);
-    });
+        try {
+            const { limit = 10, page = 1, sort, query } = req.query;
+            const options = {
+                page: parseInt(page, 10),
+                limit: parseInt(limit, 10),
+                sort: sort === 'asc' ? { price: 1 } : sort === 'desc' ? { price: -1 } : {},
+            };
 
-    router.get('/:pid', async (req, res) => {
-        const product = await Product.findById(req.params.pid);
-        if (!product) {
-            res.status(404).json({ error: 'Produto não encontrado' });
-        } else {
-            res.json(product);
-        }
-    });
+            const filter = query ? { title: new RegExp(query, 'i') } : {};
 
-    router.post('/', async (req, res) => {
-        const { title, price } = req.body;
-        const newProduct = new Product({ title, price });
-        await newProduct.save();
-        io.emit('updateProducts', await Product.find());
-        res.status(201).json(newProduct);
-    });
-
-    router.put('/:pid', async (req, res) => {
-        const updatedProduct = await Product.findByIdAndUpdate(req.params.pid, req.body, { new: true });
-        if (!updatedProduct) {
-            res.status(404).json({ error: 'Produto não encontrado' });
-        } else {
-            io.emit('updateProducts', await Product.find());
-            res.json(updatedProduct);
-        }
-    });
-
-    router.delete('/:pid', async (req, res) => {
-        const deletedProduct = await Product.findByIdAndDelete(req.params.pid);
-        if (!deletedProduct) {
-            res.status(404).json({ error: 'Produto não encontrado' });
-        } else {
-            io.emit('updateProducts', await Product.find());
-            res.status(204).end();
+            const result = await Product.paginate(filter, options);
+            res.json({
+                status: 'sucesso',
+                payload: result.docs,
+                totalPages: result.totalPages,
+                prevPage: result.prevPage,
+                nextPage: result.nextPage,
+                page: result.page,
+                hasPrevPage: result.hasPrevPage,
+                hasNextPage: result.hasNextPage,
+                prevLink: result.hasPrevPage ? `/api/products?limit=${limit}&page=${result.prevPage}&sort=${sort}&query=${query}` : null,
+                nextLink: result.hasNextPage ? `/api/products?limit=${limit}&page=${result.nextPage}&sort=${sort}&query=${query}` : null,
+            });
+        } catch (error) {
+            res.status(500).json({ status: 'erro', error: error.message });
         }
     });
 

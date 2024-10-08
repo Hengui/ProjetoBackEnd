@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Produtos</title>
+</head>
+<body>
+    <h1>Lista de Produtos</h1>
+    <ul id="productList">
+        {{#each products}}
+            <li>{{this.title}} - R$ {{this.price}}
+                <button onclick="addToCart('{{this._id}}')">Adicionar ao Carrinho</button>
+                <a href="/products/{{this._id}}">Ver Detalhes</a>
+            </li>
+        {{/each}}
+    </ul>
+    <div id="pagination">
+        {{#if hasPrevPage}}
+            <a href="{{prevLink}}">Anterior</a>
+        {{/if}}
+        {{#if hasNextPage}}
+            <a href="{{nextLink}}">Próxima</a>
+        {{/if}}
+    </div>
+    <script>
+        function addToCart(productId) {
+            fetch(`/api/carts/${cartId}/product/${productId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Erro:', error));
+        }
+    </script>
+</body>
+</html>
