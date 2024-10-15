@@ -5,7 +5,9 @@
     <title>Produtos</title>
 </head>
 <body>
-    <h1>Lista de Produtos</h1>
+    <h1>Bem-vindo, {{user.email}}</h1>
+    <h2>Você está logado como: {{user.role}}</h2>
+    <a href="/logout">Logout</a>
     <ul id="productList">
         {{#each products}}
             <li>{{this.title}} - R$ {{this.price}}
