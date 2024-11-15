@@ -1,39 +1,23 @@
-const express = require('express');
-const Cart = require('../dao/models/cart');
-const Product = require('../dao/models/product');
-const router = express.Router();
+exports.getCart = async (req, res) => {
+    const cartId = req.params.cid;
 
-module.exports = (io) => {
-    // Adicionar novo carrinho
-    router.post('/', (req, res) => {
-        const newCart = {
-            id: `cart${cartsData.length + 1}`,
-            products: [],
-        };
-
-        cartsData.push(newCart);
-        io.emit('updateCarts', cartsData); 
-
-        res.status(201).json(newCart);
-    });
-
-    // Buscar carrinho específico
-    router.get('/:cid', async (req, res) => {
-        const cartId = req.params.cid;
+    try {
         const cart = await Cart.findById(cartId).populate('products');
-
         if (!cart) {
             res.status(404).json({ error: 'Carrinho não encontrado' });
         } else {
             res.render('cart', { cart });
         }
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-    // Adicionar produto ao carrinho
-    router.post('/:cid/product/:pid', async (req, res) => {
-        const cartId = req.params.cid;
-        const productId = req.params.pid;
+exports.addProductToCart = async (req, res) => {
+    const cartId = req.params.cid;
+    const productId = req.params.pid;
 
+    try {
         const cart = await Cart.findById(cartId);
         const product = await Product.findById(productId);
 
@@ -42,16 +26,19 @@ module.exports = (io) => {
         } else {
             cart.products.push(productId);
             await cart.save();
-            io.emit('updateCarts', await Cart.find().populate('products')); 
+            io.emit('updateCarts', await Cart.find().populate('products'));
             res.status(201).json(cart);
         }
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-    // Atualizar carrinho com uma matriz de produtos
-    router.put('/:cid', async (req, res) => {
-        const cartId = req.params.cid;
-        const products = req.body.products;
+exports.updateCart = async (req, res) => {
+    const cartId = req.params.cid;
+    const products = req.body.products;
 
+    try {
         const cart = await Cart.findById(cartId);
         if (!cart) {
             res.status(404).json({ error: 'Carrinho não encontrado' });
@@ -61,14 +48,17 @@ module.exports = (io) => {
             io.emit('updateCarts', await Cart.find().populate('products'));
             res.json(cart);
         }
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-    // Atualizar quantidade de produto no carrinho
-    router.put('/:cid/products/:pid', async (req, res) => {
-        const cartId = req.params.cid;
-        const productId = req.params.pid;
-        const quantity = req.body.quantity;
+exports.updateProductQuantity = async (req, res) => {
+    const cartId = req.params.cid;
+    const productId = req.params.pid;
+    const quantity = req.body.quantity;
 
+    try {
         const cart = await Cart.findById(cartId);
         if (!cart) {
             res.status(404).json({ error: 'Carrinho não encontrado' });
@@ -83,12 +73,15 @@ module.exports = (io) => {
                 res.json(cart);
             }
         }
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-    // Remover todos os produtos do carrinho
-    router.delete('/:cid', async (req, res) => {
-        const cartId = req.params.cid;
+exports.clearCart = async (req, res) => {
+    const cartId = req.params.cid;
 
+    try {
         const cart = await Cart.findById(cartId);
         if (!cart) {
             res.status(404).json({ error: 'Carrinho não encontrado' });
@@ -98,7 +91,7 @@ module.exports = (io) => {
             io.emit('updateCarts', await Cart.find().populate('products'));
             res.status(204).end();
         }
-    });
-
-    return router;
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
