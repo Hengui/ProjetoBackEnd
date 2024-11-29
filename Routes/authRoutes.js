@@ -1,6 +1,7 @@
 const express = require('express');
 const passport = require('passport');
 const User = require('../dao/models/user');
+const UserDTO = require('../DTO/userDTO');
 const router = express.Router();
 
 router.get('/register', (req, res) => {
@@ -38,6 +39,15 @@ router.get('/auth/github/callback', passport.authenticate('github', {
 router.get('/logout', (req, res) => {
     req.logout();
     res.redirect('/login');
+});
+
+router.get('/current', (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const userDTO = new UserDTO(req.user);
+    res.json(userDTO);
 });
 
 module.exports = router;

@@ -7,6 +7,7 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('./passportConfig');
 const config = require('./config/config');
+const UserDTO = require('./DTO/userDTO');
 
 const app = express();
 const server = http.createServer(app);
@@ -64,7 +65,7 @@ app.get('/products', async (req, res) => {
 
         const result = await Product.paginate(filter, options);
         res.render('products', {
-            user: req.user,
+            user: new UserDTO(req.user),
             products: result.docs,
             totalPages: result.totalPages,
             prevPage: result.prevPage,
@@ -104,22 +105,20 @@ const Message = require('./dao/models/message');
 io.on('connection', (socket) => {
     console.log('Novo cliente conectado');
 
-    socket.on('addProduct', (product) => {
-        const newProduct = {
-            id: productsData.length + 1,
+    socket.on('addProduct', async (product) => {
+        const newProduct = new Product({
             title: product.title,
-            price: product.price,
-        };
-        productsData.push(newProduct);
-        io.emit('updateProducts', productsData);
+            price: product.price
+        });
+        await newProduct.save();
+        const products = await Product.find();
+        io.emit('updateProducts', products);
     });
 
-    socket.on('deleteProduct', (productId) => {
-        const index = productsData.findIndex(p => p.id === parseInt(productId));
-        if (index !== -1) {
-            productsData.splice(index, 1);
-            io.emit('updateProducts', productsData);
-        }
+    socket.on('deleteProduct', async (productId) => {
+        await Product.findByIdAndDelete(productId);
+        const products = await Product.find();
+        io.emit('updateProducts', products);
     });
 
     socket.on('disconnect', () => {

@@ -1,4 +1,4 @@
-const Product = require('../dao/models/product');
+const ProductRepository = require('../repository/productRepository');
 
 exports.getProducts = async (req, res) => {
     try {
@@ -11,7 +11,7 @@ exports.getProducts = async (req, res) => {
 
         const filter = query ? { title: new RegExp(query, 'i') } : {};
 
-        const result = await Product.paginate(filter, options);
+        const result = await ProductRepository.getProducts(filter, options);
         res.json({
             status: 'sucesso',
             payload: result.docs,
@@ -33,9 +33,8 @@ exports.createProduct = async (req, res) => {
     const { title, price } = req.body;
 
     try {
-        const newProduct = new Product({ title, price });
-        await newProduct.save();
-        io.emit('updateProducts', await Product.find());
+        const newProduct = await ProductRepository.addProduct({ title, price });
+        io.emit('updateProducts', await ProductRepository.getProducts({}, {}));
         res.status(201).json(newProduct);
     } catch (error) {
         res.status(500).json({ status: 'erro', error: error.message });
@@ -46,8 +45,8 @@ exports.deleteProduct = async (req, res) => {
     const productId = req.params.pid;
 
     try {
-        await Product.findByIdAndDelete(productId);
-        io.emit('updateProducts', await Product.find());
+        await ProductRepository.deleteProduct(productId);
+        io.emit('updateProducts', await ProductRepository.getProducts({}, {}));
         res.status(204).end();
     } catch (error) {
         res.status(500).json({ status: 'erro', error: error.message });
