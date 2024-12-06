@@ -7,7 +7,9 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('./passportConfig');
 const config = require('./config/config');
-const UserDTO = require('./DTO/userDTO');
+const UserDTO = require('./dto/userDTO');
+const { ErrorHandler } = require('./errors/customErrors');
+const logger = require('./logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -33,9 +35,9 @@ app.use(passport.session());
 
 app.use('/socket.io', express.static(__dirname + '/node_modules/socket.io/client-dist'));
 
-const productRoutes = require('./routes/productRoutes')(io); 
-const cartRoutes = require('./routes/cartRoutes')(io); 
-const authRoutes = require('./routes/authRoutes'); 
+const productRoutes = require('./Routes/productRoutes')(io); 
+const cartRoutes = require('./Routes/cartRoutes')(io); 
+const authRoutes = require('./Routes/authRoutes'); 
 
 app.use('/api/products', productRoutes);
 app.use('/api/carts', cartRoutes);
@@ -49,7 +51,7 @@ app.get('/realtimeproducts', (req, res) => {
     res.render('realTimeProducts', { products: productsData });
 });
 
-app.get('/products', async (req, res) => {
+app.get('/products', async (req, res, next) => {
     if (!req.isAuthenticated()) {
         return res.redirect('/login');
     }
@@ -77,7 +79,7 @@ app.get('/products', async (req, res) => {
             nextLink: result.hasNextPage ? `/products?limit=${limit}&page=${result.nextPage}&sort=${sort}&query=${query}` : null,
         });
     } catch (error) {
-        res.status(500).json({ status: 'erro', error: error.message });
+        next(error);
     }
 });
 
@@ -92,18 +94,18 @@ mongoose.connect(config.mongoUri, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 }).then(() => {
-    console.log('Conectado ao MongoDB');
+    logger.info('Conectado ao MongoDB');
     server.listen(port, () => {
-        console.log(`Servidor rodando na porta ${port}`);
+        logger.info(`Servidor rodando na porta ${port}`);
     });
 }).catch((err) => {
-    console.error('Erro ao conectar ao MongoDB', err);
+    logger.error('Erro ao conectar ao MongoDB', err);
 });
 
 const Message = require('./dao/models/message');
 
 io.on('connection', (socket) => {
-    console.log('Novo cliente conectado');
+    logger.info('Novo cliente conectado');
 
     socket.on('addProduct', async (product) => {
         const newProduct = new Product({
@@ -113,15 +115,31 @@ io.on('connection', (socket) => {
         await newProduct.save();
         const products = await Product.find();
         io.emit('updateProducts', products);
+        logger.info('Produto adicionado', newProduct);
     });
 
     socket.on('deleteProduct', async (productId) => {
         await Product.findByIdAndDelete(productId);
         const products = await Product.find();
         io.emit('updateProducts', products);
+        logger.info(`Produto ${productId} deletado`);
     });
 
     socket.on('disconnect', () => {
-        console.log('Cliente desconectado');
+        logger.info('Cliente desconectado');
     });
+});
+
+app.use((err, req, res, next) => {
+    ErrorHandler.handleError(err, req, res, next);
+});
+
+app.get('/loggerTest', (req, res) => {
+    logger.debug('Debug log');
+    logger.http('HTTP log');
+    logger.info('Info log');
+    logger.warn('Warning log');
+    logger.error('Error log');
+    logger.fatal('Fatal log');
+    res.send('Logs gerados!');
 });

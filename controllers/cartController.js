@@ -1,57 +1,55 @@
 const CartRepository = require('../repository/cartRepository');
 const ProductRepository = require('../repository/productRepository');
 const Ticket = require('../dao/models/ticket');
+const { ErrorHandler } = require('../errors/customErrors');
 
-exports.getCart = async (req, res) => {
+exports.getCart = async (req, res, next) => {
     const cartId = req.params.cid;
 
     try {
         const cart = await CartRepository.getCartById(cartId);
         if (!cart) {
-            res.status(404).json({ error: 'Carrinho não encontrado' });
-        } else {
-            res.render('cart', { cart });
+            throw ErrorHandler.cartNotFound();
         }
+        res.render('cart', { cart });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 };
 
-exports.addProductToCart = async (req, res) => {
+exports.addProductToCart = async (req, res, next) => {
     const cartId = req.params.cid;
     const productId = req.params.pid;
 
     try {
         const cart = await CartRepository.addProductToCart(cartId, productId);
         if (!cart) {
-            res.status(404).json({ error: 'Carrinho ou produto não encontrado' });
-        } else {
-            io.emit('updateCarts', await CartRepository.getAllCarts());
-            res.status(201).json(cart);
+            throw ErrorHandler.cartNotFound();
         }
+        io.emit('updateCarts', await CartRepository.getAllCarts());
+        res.status(201).json(cart);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 };
 
-exports.updateCart = async (req, res) => {
+exports.updateCart = async (req, res, next) => {
     const cartId = req.params.cid;
     const products = req.body.products;
 
     try {
         const cart = await CartRepository.updateCart(cartId, products);
         if (!cart) {
-            res.status(404).json({ error: 'Carrinho não encontrado' });
-        } else {
-            io.emit('updateCarts', await CartRepository.getAllCarts());
-            res.json(cart);
+            throw ErrorHandler.cartNotFound();
         }
+        io.emit('updateCarts', await CartRepository.getAllCarts());
+        res.json(cart);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 };
 
-exports.updateProductQuantity = async (req, res) => {
+exports.updateProductQuantity = async (req, res, next) => {
     const cartId = req.params.cid;
     const productId = req.params.pid;
     const quantity = req.body.quantity;
@@ -59,39 +57,37 @@ exports.updateProductQuantity = async (req, res) => {
     try {
         const cart = await CartRepository.updateProductQuantity(cartId, productId, quantity);
         if (!cart) {
-            res.status(404).json({ error: 'Carrinho não encontrado' });
-        } else {
-            io.emit('updateCarts', await CartRepository.getAllCarts());
-            res.json(cart);
+            throw ErrorHandler.cartNotFound();
         }
+        io.emit('updateCarts', await CartRepository.getAllCarts());
+        res.json(cart);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 };
 
-exports.clearCart = async (req, res) => {
+exports.clearCart = async (req, res, next) => {
     const cartId = req.params.cid;
 
     try {
         const cart = await CartRepository.clearCart(cartId);
         if (!cart) {
-            res.status(404).json({ error: 'Carrinho não encontrado' });
-        } else {
-            io.emit('updateCarts', await CartRepository.getAllCarts());
-            res.status(204).end();
+            throw ErrorHandler.cartNotFound();
         }
+        io.emit('updateCarts', await CartRepository.getAllCarts());
+        res.status(204).end();
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 };
 
-exports.purchaseCart = async (req, res) => {
+exports.purchaseCart = async (req, res, next) => {
     const cartId = req.params.cid;
 
     try {
         const cart = await CartRepository.getCartById(cartId);
         if (!cart) {
-            return res.status(404).json({ error: 'Carrinho não encontrado' });
+            throw ErrorHandler.cartNotFound();
         }
 
         let totalAmount = 0;
@@ -120,6 +116,6 @@ exports.purchaseCart = async (req, res) => {
 
         res.status(200).json({ message: 'Compra realizada com sucesso', ticket });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        next(error);
     }
 };

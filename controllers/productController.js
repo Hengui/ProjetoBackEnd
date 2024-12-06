@@ -1,6 +1,7 @@
 const ProductRepository = require('../repository/productRepository');
+const { ErrorHandler } = require('../errors/customErrors');
 
-exports.getProducts = async (req, res) => {
+exports.getProducts = async (req, res, next) => {
     try {
         const { limit = 10, page = 1, sort, query } = req.query;
         const options = {
@@ -25,11 +26,11 @@ exports.getProducts = async (req, res) => {
             nextLink: result.hasNextPage ? `/api/products?limit=${limit}&page=${result.nextPage}&sort=${sort}&query=${query}` : null,
         });
     } catch (error) {
-        res.status(500).json({ status: 'erro', error: error.message });
+        next(error);
     }
 };
 
-exports.createProduct = async (req, res) => {
+exports.createProduct = async (req, res, next) => {
     const { title, price } = req.body;
 
     try {
@@ -37,11 +38,11 @@ exports.createProduct = async (req, res) => {
         io.emit('updateProducts', await ProductRepository.getProducts({}, {}));
         res.status(201).json(newProduct);
     } catch (error) {
-        res.status(500).json({ status: 'erro', error: error.message });
+        next(error);
     }
 };
 
-exports.deleteProduct = async (req, res) => {
+exports.deleteProduct = async (req, res, next) => {
     const productId = req.params.pid;
 
     try {
@@ -49,6 +50,6 @@ exports.deleteProduct = async (req, res) => {
         io.emit('updateProducts', await ProductRepository.getProducts({}, {}));
         res.status(204).end();
     } catch (error) {
-        res.status(500).json({ status: 'erro', error: error.message });
+        next(error);
     }
 };
