@@ -10,6 +10,7 @@ const config = require('./config/config');
 const UserDTO = require('./dto/userDTO');
 const { ErrorHandler } = require('./errors/customErrors');
 const logger = require('./logger');
+const setupSwaggerDocs = require('./config/swagger');
 
 const app = express();
 const server = http.createServer(app);
@@ -35,9 +36,9 @@ app.use(passport.session());
 
 app.use('/socket.io', express.static(__dirname + '/node_modules/socket.io/client-dist'));
 
-const productRoutes = require('./Routes/productRoutes')(io); 
-const cartRoutes = require('./Routes/cartRoutes')(io); 
-const authRoutes = require('./Routes/authRoutes'); 
+const productRoutes = require('./routes/productRoutes')(io); 
+const cartRoutes = require('./routes/cartRoutes')(io); 
+const authRoutes = require('./routes/authRoutes'); 
 
 app.use('/api/products', productRoutes);
 app.use('/api/carts', cartRoutes);
@@ -108,21 +109,29 @@ io.on('connection', (socket) => {
     logger.info('Novo cliente conectado');
 
     socket.on('addProduct', async (product) => {
-        const newProduct = new Product({
-            title: product.title,
-            price: product.price
-        });
-        await newProduct.save();
-        const products = await Product.find();
-        io.emit('updateProducts', products);
-        logger.info('Produto adicionado', newProduct);
+        try {
+            const newProduct = new Product({
+                title: product.title,
+                price: product.price
+            });
+            await newProduct.save();
+            const products = await Product.find();
+            io.emit('updateProducts', products);
+            logger.info('Produto adicionado', { product: newProduct });
+        } catch (error) {
+            logger.error('Erro ao adicionar produto', error);
+        }
     });
 
     socket.on('deleteProduct', async (productId) => {
-        await Product.findByIdAndDelete(productId);
-        const products = await Product.find();
-        io.emit('updateProducts', products);
-        logger.info(`Produto ${productId} deletado`);
+        try {
+            await Product.findByIdAndDelete(productId);
+            const products = await Product.find();
+            io.emit('updateProducts', products);
+            logger.info(`Produto ${productId} deletado`);
+        } catch (error) {
+            logger.error('Erro ao deletar produto', error);
+        }
     });
 
     socket.on('disconnect', () => {
@@ -130,16 +139,11 @@ io.on('connection', (socket) => {
     });
 });
 
+// Middleware de erro
 app.use((err, req, res, next) => {
+    logger.error('Erro no servidor', err);
     ErrorHandler.handleError(err, req, res, next);
 });
 
-app.get('/loggerTest', (req, res) => {
-    logger.debug('Debug log');
-    logger.http('HTTP log');
-    logger.info('Info log');
-    logger.warn('Warning log');
-    logger.error('Error log');
-    logger.fatal('Fatal log');
-    res.send('Logs gerados!');
-});
+// Configuração do Swagger
+setupSwaggerDocs(app);
