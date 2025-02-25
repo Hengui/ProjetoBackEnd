@@ -1,4 +1,6 @@
 const ProductRepository = require('../repository/productRepository');
+const User = require('../dao/models/user');
+const nodemailer = require('nodemailer');
 const { ErrorHandler } = require('../errors/customErrors');
 
 exports.getProducts = async (req, res, next) => {
@@ -30,26 +32,51 @@ exports.getProducts = async (req, res, next) => {
     }
 };
 
-exports.createProduct = async (req, res, next) => {
+exports.createProduct = async (io, req, res, next) => {
     const { title, price } = req.body;
-
     try {
         const newProduct = await ProductRepository.addProduct({ title, price });
-        io.emit('updateProducts', await ProductRepository.getProducts({}, {}));
+        const products = await ProductRepository.getProducts({}, {});
+        io.emit('updateProducts', products);
         res.status(201).json(newProduct);
     } catch (error) {
         next(error);
     }
 };
 
-exports.deleteProduct = async (req, res, next) => {
+exports.deleteProduct = async (io, req, res, next) => {
     const productId = req.params.pid;
-
     try {
+        const product = await ProductRepository.getProductById(productId);
         await ProductRepository.deleteProduct(productId);
-        io.emit('updateProducts', await ProductRepository.getProducts({}, {}));
+        if (product && product.userId) {
+            const owner = await User.findById(product.userId);
+            if (owner && owner.role === 'premium') {
+                await sendProductDeletionEmail(owner.email, product.title);
+            }
+        }
+        const products = await ProductRepository.getProducts({}, {});
+        io.emit('updateProducts', products);
         res.status(204).end();
     } catch (error) {
         next(error);
     }
 };
+
+async function sendProductDeletionEmail(recipientEmail, productTitle) {
+    let transporter = nodemailer.createTransport({
+        host: 'smtp.example.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: 'usuario@example.com',
+            pass: 'senha'
+        }
+    });
+    await transporter.sendMail({
+        from: '"E-commerce" <no-reply@example.com>',
+        to: recipientEmail,
+        subject: 'Produto Excluído',
+        text: `Seu produto "${productTitle}" foi excluído da plataforma.`
+    });
+}

@@ -1,105 +1,82 @@
-const express = require('express');
-const productController = require('../controllers/productController');
-const authorization = require('../middleware/authorization');
-const generateMockProducts = require('../mocking/generateMockProducts');
-const router = express.Router();
+const ProductRepository = require('../repository/productRepository');
+const User = require('../dao/models/user');
+const nodemailer = require('nodemailer');
+const { ErrorHandler } = require('../errors/customErrors');
 
-module.exports = (io) => {
-    /**
-     * @swagger
-     * components:
-     *   schemas:
-     *     Product:
-     *       type: object
-     *       required:
-     *         - title
-     *         - price
-     *       properties:
-     *         id:
-     *           type: string
-     *           description: O ID auto-gerado do produto
-     *         title:
-     *           type: string
-     *           description: O título do produto
-     *         price:
-     *           type: number
-     *           description: O preço do produto
-     *       example:
-     *         title: "Produto Exemplo"
-     *         price: 99.99
-     */
+exports.getProducts = async (req, res, next) => {
+    try {
+        const { limit = 10, page = 1, sort, query } = req.query;
+        const options = {
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10),
+            sort: sort === 'asc' ? { price: 1 } : sort === 'desc' ? { price: -1 } : {},
+        };
 
-    /**
-     * @swagger
-     * tags:
-     *   name: Produtos
-     *   description: API para gerenciamento de produtos
-     */
+        const filter = query ? { title: new RegExp(query, 'i') } : {};
 
-    /**
-     * @swagger
-     * /api/products:
-     *   get:
-     *     summary: Retorna a lista de todos os produtos
-     *     tags: [Produtos]
-     *     responses:
-     *       200:
-     *         description: A lista de produtos
-     *         content:
-     *           application/json:
-     *             schema:
-     *               type: array
-     *               items:
-     *                 $ref: '#/components/schemas/Product'
-     */
-    router.get('/', productController.getProducts);
-
-    /**
-     * @swagger
-     * /api/products:
-     *   post:
-     *     summary: Cria um novo produto
-     *     tags: [Produtos]
-     *     requestBody:
-     *       required: true
-     *       content:
-     *         application/json:
-     *           schema:
-     *             $ref: '#/components/schemas/Product'
-     *     responses:
-     *       201:
-     *         description: Produto criado com sucesso
-     *         content:
-     *           application/json:
-     *             schema:
-     *               $ref: '#/components/schemas/Product'
-     */
-    router.post('/', authorization.isAdmin, (req, res) => productController.createProduct(io, req, res));
-
-    /**
-     * @swagger
-     * /api/products/{pid}:
-     *   delete:
-     *     summary: Remove um produto pelo ID
-     *     tags: [Produtos]
-     *     parameters:
-     *       - in: path
-     *         name: pid
-     *         schema:
-     *           type: string
-     *         required: true
-     *         description: O ID do produto
-     *     responses:
-     *       204:
-     *         description: Produto removido com sucesso
-     */
-    router.delete('/:pid', authorization.isAdmin, (req, res) => productController.deleteProduct(io, req, res));
-
-    // Endpoint para gerar produtos mock
-    router.get('/mockingproducts', (req, res) => {
-        const mockProducts = generateMockProducts();
-        res.json(mockProducts);
-    });
-
-    return router;
+        const result = await ProductRepository.getProducts(filter, options);
+        res.json({
+            status: 'sucesso',
+            payload: result.docs,
+            totalPages: result.totalPages,
+            prevPage: result.prevPage,
+            nextPage: result.nextPage,
+            page: result.page,
+            hasPrevPage: result.hasPrevPage,
+            hasNextPage: result.hasNextPage,
+            prevLink: result.hasPrevPage ? `/api/products?limit=${limit}&page=${result.prevPage}&sort=${sort}&query=${query}` : null,
+            nextLink: result.hasNextPage ? `/api/products?limit=${limit}&page=${result.nextPage}&sort=${sort}&query=${query}` : null,
+        });
+    } catch (error) {
+        next(error);
+    }
 };
+
+exports.createProduct = async (io, req, res, next) => {
+    const { title, price } = req.body;
+    try {
+        const newProduct = await ProductRepository.addProduct({ title, price });
+        const products = await ProductRepository.getProducts({}, {});
+        io.emit('updateProducts', products);
+        res.status(201).json(newProduct);
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.deleteProduct = async (io, req, res, next) => {
+    const productId = req.params.pid;
+    try {
+        const product = await ProductRepository.getProductById(productId);
+        await ProductRepository.deleteProduct(productId);
+        if (product && product.userId) {
+            const owner = await User.findById(product.userId);
+            if (owner && owner.role === 'premium') {
+                await sendProductDeletionEmail(owner.email, product.title);
+            }
+        }
+        const products = await ProductRepository.getProducts({}, {});
+        io.emit('updateProducts', products);
+        res.status(204).end();
+    } catch (error) {
+        next(error);
+    }
+};
+
+async function sendProductDeletionEmail(recipientEmail, productTitle) {
+    let transporter = nodemailer.createTransport({
+        host: 'smtp.example.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: 'usuario@example.com',
+            pass: 'senha'
+        }
+    });
+    await transporter.sendMail({
+        from: '"E-commerce" <no-reply@example.com>',
+        to: recipientEmail,
+        subject: 'Produto Excluído',
+        text: `Seu produto "${productTitle}" foi excluído da plataforma.`
+    });
+}

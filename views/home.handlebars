@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+</head>
+<body>
+    <h1>Bem-vindo à Nossa Loja</h1>
+    <ul id="productList">
+        {{#each products}}
+            <li>{{this.title}} - R$ {{this.price}}
+                <a href="/products/{{this._id}}">Ver Detalhes</a>
+            </li>
+        {{/each}}
+    </ul>
+</body>
+</html>

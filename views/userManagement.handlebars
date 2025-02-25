@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerenciamento de Usuários</title>
+</head>
+<body>
+  <h1>Gerenciamento de Usuários</h1>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Tipo de Conta</th>
+        <th>Último Online</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each users}}
+      <tr>
+        <td>{{this.email}}</td>
+        <td>{{this.role}}</td>
+        <td>{{this.lastOnline}}</td>
+        <td>
+          <button onclick="editUser('{{this._id}}')">Editar</button>
+          <button onclick="deleteUser('{{this._id}}')">Excluir</button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  <script>
+    function editUser(id) {
+      window.location.href = `/admin/users/${id}/edit`;
+    }
+    function deleteUser(id) {
+      if (confirm('Tem certeza que deseja excluir este usuário?')) {
+        fetch(`/admin/users/${id}`, { method: 'DELETE' })
+          .then(response => response.json())
+          .then(data => {
+            alert('Usuário excluído!');
+            window.location.reload();
+          })
+          .catch(error => console.error('Erro:', error));
+      }
+    }
+  </script>
+</body>
+</html>

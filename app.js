@@ -36,16 +36,23 @@ app.use(passport.session());
 
 app.use('/socket.io', express.static(__dirname + '/node_modules/socket.io/client-dist'));
 
-const productRoutes = require('./routes/productRoutes')(io); 
-const cartRoutes = require('./routes/cartRoutes')(io); 
-const authRoutes = require('./routes/authRoutes'); 
+const productRoutes = require('./routes/productRoutes')(io);
+const cartRoutes = require('./routes/cartRoutes')(io);
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 app.use('/api/products', productRoutes);
 app.use('/api/carts', cartRoutes);
+app.use('/api/users', userRoutes);
 app.use('/', authRoutes);
 
-app.get('/', (req, res) => {
-    res.render('home', { products: productsData });
+app.get('/', async (req, res, next) => {
+    try {
+        const products = await Product.find();
+        res.render('home', { products });
+    } catch (error) {
+        next(error);
+    }
 });
 
 app.get('/realtimeproducts', (req, res) => {
@@ -79,6 +86,46 @@ app.get('/products', async (req, res, next) => {
             prevLink: result.hasPrevPage ? `/products?limit=${limit}&page=${result.prevPage}&sort=${sort}&query=${query}` : null,
             nextLink: result.hasNextPage ? `/products?limit=${limit}&page=${result.nextPage}&sort=${sort}&query=${query}` : null,
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get('/cart', async (req, res, next) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/login');
+    }
+    try {
+        const cart = await Cart.findById(req.session.cartId).populate('products.product');
+        res.render('cart', { cart });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get('/checkout', async (req, res, next) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/login');
+    }
+    try {
+        const cart = await Cart.findById(req.session.cartId).populate('products.product');
+        res.render('checkout', { cart });
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.post('/checkout', async (req, res, next) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/login');
+    }
+    try {
+        // Lógica de finalização da compra
+        // Ex: Atualizar estoque, gerar ticket, limpar carrinho
+        const cart = await Cart.findById(req.session.cartId).populate('products.product');
+        // Atualizar estoque, gerar ticket, limpar carrinho
+        await Cart.findByIdAndUpdate(req.session.cartId, { $set: { products: [] } });
+        res.redirect('/products');
     } catch (error) {
         next(error);
     }
@@ -139,11 +186,11 @@ io.on('connection', (socket) => {
     });
 });
 
-// Middleware de erro
+
 app.use((err, req, res, next) => {
     logger.error('Erro no servidor', err);
     ErrorHandler.handleError(err, req, res, next);
 });
 
-// Configuração do Swagger
+
 setupSwaggerDocs(app);

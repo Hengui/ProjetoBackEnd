@@ -2,16 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Carrinho</title>
+    <title>Checkout</title>
 </head>
 <body>
-    <h1>Seu Carrinho</h1>
-    <ul id="cartList">
+    <h1>Checkout</h1>
+    <h2>Resumo do Pedido</h2>
+    <ul id="checkoutList">
         {{#each cart.products}}
             <li>{{this.title}} - R$ {{this.price}}</li>
         {{/each}}
     </ul>
     <h3>Total: R$ {{cart.totalPrice}}</h3>
-    <a href="/checkout">Ir para Checkout</a>
+    <form action="/checkout" method="POST">
+        <button type="submit">Finalizar Compra</button>
+    </form>
 </body>
 </html>
